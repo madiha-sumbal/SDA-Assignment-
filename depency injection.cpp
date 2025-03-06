@@ -1,108 +1,164 @@
 #include <iostream>
-#include <cstring>
+#include <vector>
+#include <memory>
+#include <juice/juice.h> // Google Juice for Dependency Injection
 
 using namespace std;
+using namespace juice;
 
-// Welcome Message
-void WelcomeScreen() {
-    cout << "********** Welcome to XYZ Hospital Management System **********" << endl;
-    cout << "[1] Hospital Services" << endl;
-    cout << "[2] Cafe" << endl;
-    cout << "[0] Exit" << endl;
-}
-
-// Hospital Section
-class Hospital {
-protected:
-    static int capacity;
+// Interface for Extendability (High-Level)
+class IService {
 public:
-    Hospital() { capacity = 500; }
-    static void showCapacity() { cout << "Available Beds: " << capacity << endl; }
+    virtual void execute() = 0;
+    virtual ~IService() = default;
 };
-int Hospital::capacity;
 
-class Patient : public Hospital {
-    char name[50];
-    int age, id;
+// Bed Management Interfaces
+class IBedAllocator {
 public:
-    void get() {
+    virtual bool allocateBed() = 0;
+    virtual ~IBedAllocator() = default;
+};
+
+class IBedCapacity {
+public:
+    virtual void showCapacity() const = 0;
+    virtual ~IBedCapacity() = default;
+};
+
+class IBedManager : public IBedAllocator, public IBedCapacity {};
+
+// Concrete General Bed Manager
+class GeneralBedManager : public IBedManager {
+private:
+    int capacity;
+public:
+    GeneralBedManager(int cap) : capacity(cap) {}
+    void showCapacity() const override { cout << "Available General Beds: " << capacity << endl; }
+    bool allocateBed() override {
+        if (capacity > 0) { capacity--; return true; }
+        cout << "No general beds available!" << endl;
+        return false;
+    }
+};
+
+// Dependency Injection for BedManager
+class BedModule : public juice::AbstractModule {
+public:
+    void configure() override {
+        bind<IBedManager>().to<GeneralBedManager>().in<Singleton>();
+    }
+};
+
+// Patient Class
+class Patient {
+private:
+    IBedAllocator& bedAllocator;
+public:
+    Patient(IBedAllocator& allocator) : bedAllocator(allocator) {}
+    void registerPatient() {
+        string name;
         cout << "Enter Name: "; cin >> name;
-        cout << "Enter Age: "; cin >> age;
-        cout << "Enter Patient ID: "; cin >> id;
-        capacity--;
-        cout << "Patient Registered. Remaining Beds: " << capacity << endl;
-    }
-    void show() {
-        cout << "Patient Name: " << name << " | Age: " << age << " | ID: " << id << endl;
+        if (bedAllocator.allocateBed()) {
+            cout << "Patient Registered Successfully!" << endl;
+        }
     }
 };
 
-// Cafe Section
-class Cafe {
-    float total;
+// Hospital Service
+class HospitalService : public IService {
+private:
+    IBedManager& bedManager;
 public:
-    Cafe() { total = 0; }
-    void showMenu() {
-        cout << "[1] Tea - Rs. 450" << endl;
-        cout << "[2] Coffee - Rs. 550" << endl;
-        cout << "[3] Sandwich - Rs. 600" << endl;
-        cout << "[4] Cookie - Rs. 400" << endl;
+    HospitalService(IBedManager& manager) : bedManager(manager) {}
+    void execute() override {
+        Patient patient(bedManager);
+        patient.registerPatient();
+    }
+};
+
+// Cafe Menu
+class CafeMenu {
+public:
+    struct Item {
+        string name;
+        float price;
+    };
+    static vector<Item> menu;
+    static void displayMenu() {
+        for (size_t i = 0; i < menu.size(); i++) {
+            cout << "[" << i + 1 << "] " << menu[i].name << " - Rs. " << menu[i].price << endl;
+        }
         cout << "[0] Checkout" << endl;
     }
-    void order() {
+};
+
+vector<CafeMenu::Item> CafeMenu::menu = {
+    {"Tea", 450},
+    {"Coffee", 550},
+    {"Sandwich", 600},
+    {"Cookie", 400}
+};
+
+// Cafe Ordering System
+class CafeOrder {
+private:
+    float total = 0;
+public:
+    void placeOrder() {
         int choice;
         do {
-            showMenu();
+            CafeMenu::displayMenu();
             cout << "Select Item: "; cin >> choice;
-            switch(choice) {
-                case 1: total += 450; break;
-                case 2: total += 550; break;
-                case 3: total += 600; break;
-                case 4: total += 400; break;
-                case 0: break;
-                default: cout << "Invalid Choice!" << endl;
+            if (choice > 0 && choice <= CafeMenu::menu.size()) {
+                total += CafeMenu::menu[choice - 1].price;
+            } else if (choice != 0) {
+                cout << "Invalid Choice!" << endl;
             }
-        } while(choice != 0);
+        } while (choice != 0);
         cout << "Total Bill: Rs. " << total << endl;
     }
 };
 
-int main() {
-    int choice;
-    do {
-        WelcomeScreen();
-        cout << "Enter Your Choice: "; cin >> choice;
-        cout << endl;
-        
-        switch(choice) {
-            case 1: {
-                int subChoice;
-                Patient p;
-                do {
-                    cout << "[1] Register Patient" << endl;
-                    cout << "[2] View Capacity" << endl;
-                    cout << "[0] Back to Main Menu" << endl;
-                    cout << "Enter Choice: "; cin >> subChoice;
-                    
-                    if(subChoice == 1) p.get();
-                    else if(subChoice == 2) Hospital::showCapacity();
-                    else if(subChoice != 0) cout << "Invalid Choice!" << endl;
-                    
-                } while(subChoice != 0);
-                break;
-            }
-            case 2: {
-                Cafe c;
-                c.order();
-                break;
-            }
-            case 0:
-                cout << "Exiting... Thank you!" << endl;
-                break;
-            default:
-                cout << "Invalid Option! Try again." << endl;
+// Cafe Service
+class CafeService : public IService {
+public:
+    void execute() override {
+        CafeOrder order;
+        order.placeOrder();
+    }
+};
+
+// Service Injection Module
+class ServiceModule : public juice::AbstractModule {
+public:
+    void configure() override {
+        bind<IService>().to<HospitalService>();
+        bind<IService>().to<CafeService>();
+    }
+};
+
+// Main System
+class HospitalManagementSystem {
+private:
+    vector<unique_ptr<IService>> services;
+public:
+    HospitalManagementSystem(vector<unique_ptr<IService>> svcList) : services(move(svcList)) {}
+    void run() {
+        for (auto& service : services) {
+            service->execute();
         }
-    } while(choice != 0);
+    }
+};
+
+int main() {
+    Injector injector(make_unique<BedModule>(), make_unique<ServiceModule>());
+    auto hospitalService = injector.getInstance<IService>();
+    auto cafeService = injector.getInstance<IService>();
+    vector<unique_ptr<IService>> services;
+    services.push_back(move(hospitalService));
+    services.push_back(move(cafeService));
+    HospitalManagementSystem system(move(services));
+    system.run();
     return 0;
 }
-
