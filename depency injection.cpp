@@ -213,14 +213,31 @@ public:
 };
 
 // Main Entry with Dependency Injection
+// Main Entry with Dependency Injection
 int main() {
-    unique_ptr<IBedManager> bedManager = make_unique<GeneralBedManager>(500); // Create dependency
+    // Step 1: Create a Bed Manager (Dependency)
+    // Using smart pointer (unique_ptr) to manage the memory of a GeneralBedManager with 500 beds.
+    unique_ptr<IBedManager> bedManager = make_unique<GeneralBedManager>(500);
 
+    // Step 2: Create a vector to store service objects
     vector<unique_ptr<IService>> services;
-    services.push_back(make_unique<HospitalService>(*bedManager)); // Inject dependency
+
+    // Step 3: Inject the Bed Manager dependency into HospitalService
+    // - Dereferencing `bedManager` (*bedManager) passes a reference to HospitalService.
+    // - `make_unique<HospitalService>(*bedManager)` dynamically creates a HospitalService instance.
+    services.push_back(make_unique<HospitalService>(*bedManager)); 
+
+    // Step 4: Create and add CafeService (does not require any dependencies)
     services.push_back(make_unique<CafeService>());
 
-    HospitalManagementSystem system(move(services)); // Inject services
+    // Step 5: Inject the list of services into the Hospital Management System
+    // - `move(services)` transfers ownership to `HospitalManagementSystem`
+    // - This ensures that `HospitalManagementSystem` fully controls the services.
+    HospitalManagementSystem system(move(services)); 
+
+    // Step 6: Run the system (Displays menu and handles user input)
     system.run();
+
+    // Step 7: Exit the program
     return 0;
 }
