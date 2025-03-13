@@ -85,9 +85,7 @@ public:
 // Dependency Injection in Patient Class
 class Patient {
 private:
-    string name;
-    int age, id;
-    IBedAllocator& bedAllocator;
+    IBedAllocator& bedAllocator; // Dependency injected
 public:
     Patient(IBedAllocator& allocator) : bedAllocator(allocator) {}
 
@@ -102,16 +100,17 @@ public:
     }
 };
 
+
 // Hospital Services Implementing DIP
 class HospitalService : public IService {
 private:
-    IBedManager& bedManager;
+    IBedManager& bedManager; // Dependency injected
 public:
     HospitalService(IBedManager& manager) : bedManager(manager) {}
 
     void execute() override {
         int subChoice;
-        Patient patient(bedManager);
+        Patient patient(bedManager); // Injecting dependency again
         do {
             cout << "[1] Register Patient" << endl;
             cout << "[2] View Bed Capacity" << endl;
@@ -125,6 +124,7 @@ public:
         } while (subChoice != 0);
     }
 };
+
 
 // Cafe Menu
 class CafeMenu {
@@ -213,13 +213,13 @@ public:
 
 // Main Entry with Dependency Injection
 int main() {
-    unique_ptr<IBedManager> bedManager = make_unique<GeneralBedManager>(500);
-    vector<unique_ptr<IService>> services;
+    unique_ptr<IBedManager> bedManager = make_unique<GeneralBedManager>(500); // Create dependency
 
-    services.push_back(make_unique<HospitalService>(*bedManager));
+    vector<unique_ptr<IService>> services;
+    services.push_back(make_unique<HospitalService>(*bedManager)); // Inject dependency
     services.push_back(make_unique<CafeService>());
 
-    HospitalManagementSystem system(move(services));
+    HospitalManagementSystem system(move(services)); // Inject services
     system.run();
     return 0;
 }
