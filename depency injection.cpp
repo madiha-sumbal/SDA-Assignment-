@@ -188,10 +188,11 @@ public:
 // Hospital Management System with Dependency Injection
 class HospitalManagementSystem {
 private:
-    vector<unique_ptr<IService>> services;
+    vector<unique_ptr<IService>> services; // Stores a list of service objects
 public:
     HospitalManagementSystem(vector<unique_ptr<IService>> serviceList) 
-        : services(move(serviceList)) {}
+        : services(move(serviceList)) {} // Moves the ownership of serviceList
+};
 
     void run() {
         int choice;
